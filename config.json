@@ -1,0 +1,16 @@
+{
+    "app": {
+        "name": "python_project",
+        "version": "0.1.0",
+        "environment": "development"
+    },
+    "logging": {
+        "level": "INFO",
+        "format": "%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+        "file": "logs/app.log"
+    },
+    "features": {
+        "enable_feature_a": true,
+        "enable_feature_b": false
+    }
+}
