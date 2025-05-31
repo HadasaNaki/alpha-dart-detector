@@ -1,0 +1,26 @@
+# Core dependencies (נדרש להרצת האפליקציה)
+pytest==7.4.0
+pytest-cov==4.1.0
+
+# Add your project dependencies below
+
+# Development and Testing (נדרש לפיתוח ובדיקות)
+pylint==2.17.4
+flake8==6.0.0
+black==23.3.0
+mypy==1.3.0
+
+# Documentation (נדרש לבניית תיעוד)
+Sphinx==6.2.1
+sphinx-rtd-theme==1.2.2
+
+# Package building and distribution (נדרש לבניית והפצת חבילות)
+build==0.10.0
+twine==4.0.2
+
+# Debugging and profiling (נדרש לדיבוג וניתוח ביצועים)
+ipython==8.14.0
+line-profiler==4.0.3
+
+# Optional: Jupyter for notebook development (אופציונלי: לפיתוח עם מחברות)
+jupyter==1.0.0
