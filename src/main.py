@@ -1,64 +1,135 @@
-"""
-Main module for the project.
-"""
-import sys
-from typing import Dict, Any, Optional
+import os
+from loading import load_dicom_and_rtss_this_project, load_dicom, load_rtss
+from debug_tools import debug_tumor_segmentation  # Assuming display_3d handles the visualization
+from debug_tools import save_colored_contours_with_segmentation
+from debug_tools import generate_outputs_from_images
+from segmentation_FT import tumor_segmentation_fixed_threshold as tumor_seg_simple
+from debug_tools import save_manual_segmentation_images, generate_outputs_from_images
+from segmentation_FT import tumor_segmentation as tumor_seg_all
+from segmentation_FT import tumor_segmentation_try as tumor_seg_all
 
-from .config import config
-from .logger import get_logger
-from .utils import timed_execution
 
-logger = get_logger(__name__)
+def process_case(case_num, base_path, output_base_path, needed_organs, resolution_factor):
+    """
+    Process a single case: load data, perform segmentation, and save results.
+    """
+    print(f"Processing case: {case_num}\n{'-' * 20}")
 
-@timed_execution
-def run_application(params: Optional[Dict[str, Any]] = None) -> int:
-    """
-    Run the main application logic.
-    
-    Args:
-        params: Optional parameters to customize application behavior
-        
-    Returns:
-        Exit code (0 for success, non-zero for failure)
-    """
-    params = params or {}
-    
-    # Get application configuration
-    app_name = config.get('app.name', 'python_project')
-    app_version = config.get('app.version', '0.1.0')
-    
-    logger.info(f"Starting {app_name} v{app_version}")
-    logger.debug(f"Running with parameters: {params}")
-    
-    # Check enabled features
-    feature_a = config.get('features.enable_feature_a', False)
-    feature_b = config.get('features.enable_feature_b', False)
-    
-    if feature_a:
-        logger.info("Feature A is enabled")
-    
-    if feature_b:
-        logger.info("Feature B is enabled")
-    
-    # Main application logic would go here
-    print(f"Welcome to {app_name} v{app_version}!")
-    print("This is a Python project template with CI/CD integration.")
-    
-    logger.info("Application completed successfully")
-    return 0
+    # Define paths
+    case_path = os.path.join(base_path, f"{case_num}_1")
+    output_file_path = os.path.join(output_base_path, f"file{case_num}")
 
-def main() -> int:
+    # Load DICOM and VOI data
+    spect_data, voi_data = load_dicom_and_rtss_this_project(
+        case_path,
+        needed_organs=needed_organs,
+        improve_resolution_factor=resolution_factor
+    )
+
+    print("Data loaded successfully.")
+
+    needed_organs = [voi['name'] for voi in voi_data.voi_info]
+    # שלב 1: שמירה של איברים בלבד
+    save_colored_contours_with_segmentation(
+        voi_data=voi_data,
+        spect_image=spect_data.image,
+        tumor_mask=None,
+        save_path=os.path.join(base_path, f"organs_only/{case_num}"),
+        organs_list=needed_organs
+    )
+    image_dir = os.path.join(base_path, f"organs_only/{case_num}")
+    output_name = f"{case_num}organs_only"
+    generate_outputs_from_images(
+        image_folder=image_dir,
+        output_name=output_name,
+        gif_duration=300  # 300ms בין פרוסות
+    )
+
+    # שלב 2: 35%
+    spect_image_35, tumor_label_35, _ = tumor_seg_simple(
+        spect_data,
+        voi_data.copy_instance(),
+        threshold_ratio=0.35
+    )
+    save_colored_contours_with_segmentation(
+        voi_data=voi_data,
+        spect_image=spect_image_35,
+        tumor_mask=tumor_label_35 > 0,
+        save_path=os.path.join(base_path, f"organs_with_tumor_35/{case_num}"),
+        organs_list=needed_organs
+    )
+    image_dir = os.path.join(base_path, f"organs_with_tumor_35/{case_num}")
+    output_name = f"{case_num}organs_with_tumor_35"
+    generate_outputs_from_images(
+        image_folder=image_dir,
+        output_name=output_name,
+        gif_duration=300  # 300ms בין פרוסות
+    )
+
+    # שלב 3: 41%
+    spect_image_41, tumor_label_41, _ = tumor_seg_simple(
+        spect_data,
+        voi_data.copy_instance(),
+        threshold_ratio=0.41
+    )
+
+    save_colored_contours_with_segmentation(
+        voi_data=voi_data,
+        spect_image=spect_image_41,
+        tumor_mask=tumor_label_41 > 0,
+        save_path=os.path.join(base_path, f"organs_with_tumor_41/{case_num}"),
+        organs_list=needed_organs
+    )
+
+    image_dir = os.path.join(base_path, f"organs_with_tumor_41/{case_num}")
+    output_name = f"{case_num}organs_with_tumor_41"
+    generate_outputs_from_images(
+        image_folder=image_dir,
+        output_name=output_name,
+        gif_duration=300  # 300ms בין פרוסות
+    )
+
+    # יצירת תמונות של סגמנטציה ידנית של הרופא
+
+
+    ''''# מסלול לשמירת התמונות
+    manual_output_dir = os.path.join(base_path, f"manual_tumor/{case_num}")
+    os.makedirs(manual_output_dir, exist_ok=True)
+
+    # שמירת תמונות עם האיברים והגידולים הידניים (שמות VOI עם "tumor"/"lesion")
+    save_manual_segmentation_images(
+        voi_data=voi_data,
+        spect_image=spect_data.image,
+        save_path=manual_output_dir,
+        organs_list=needed_organs
+    )
+
+    # יצירת GIF ו-PDF מהתמונות שנשמרו
+    generate_outputs_from_images(
+        image_folder=manual_output_dir,
+        output_name=f"{case_num}_manual_tumor",
+        gif_duration=300
+    )'''
+
+    print(f"Case {case_num} processed.\n")
+
+
+def main():
     """
-    Main entry point for the application.
-    
-    Returns:
-        Exit code (0 for success, non-zero for failure)
+    Main function to process multiple cases.
     """
-    try:
-        return run_application()
-    except Exception as e:
-        logger.exception(f"An error occurred: {e}")
-        return 1
+    # Configurations
+    base_path = r"C:\Users\shila\Downloads\SPECT project"
+    output_base_path = os.path.join(base_path, "test_rtss_update")
+    needed_organs = ["liver", "kidney", "tumor"]
+    resolution_factor = (1, 1, 1)
+    cases_to_process = range(1, 2)
+
+    # Process each case
+    for case_num in cases_to_process:
+        process_case(case_num, base_path, output_base_path, needed_organs, resolution_factor)
+
 
 if __name__ == "__main__":
-    sys.exit(main())
+    main()
+
